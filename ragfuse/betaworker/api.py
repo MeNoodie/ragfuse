@@ -50,10 +50,26 @@ def betaworker(
     # 1. Detect loader
     # -------------------------
 
+    EXTENSION_TO_LOADER = {
+    "txt": "text",
+
+    "csv": "csv",
+
+    "pdf": "pdf",
+
+    "json": "json",
+
+    "md": "markdown",
+
+    "xls": "excel",
+    "xlsx": "excel",
+    "xlsm": "excel",
+}
+
     if loader is None:
 
         suffix = Path(file_path).suffix.lower().lstrip(".")
-        loader = "text" if suffix == "txt" else suffix
+        loader = EXTENSION_TO_LOADER.get(suffix)
 
         if loader not in LOADER_REGISTRY:
             raise ValueError(
