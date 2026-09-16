@@ -53,6 +53,7 @@ class ContextualChunker(BaseChunker):
         return chunks
 
     def _split_sentences(self, paragraph):
+        
         sentences = []
         remaining = paragraph.strip()
         while len(remaining) > self.chunk_size:
