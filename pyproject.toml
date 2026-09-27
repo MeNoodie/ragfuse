@@ -7,6 +7,14 @@ name = "ragfuse"
 version = "0.1.0"
 description = "A simple RAG package for loading and chunking documents"
 requires-python = ">=3.8"
+dependencies = [
+    "sentence-transformers>=2.2.0",
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "pypdf>=4.0.0",
+    "langchain-text-splitters>=0.2.0",
+    "langchain-community>=0.2.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
