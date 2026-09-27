@@ -1,3 +1,7 @@
-from .betaworker import Document, betaworker
+from .betaworker.api import betaworker
+from .betaworker.api import alphaworker
 
-__all__ = ["betaworker", "Document"]
+__all__ = [
+    "betaworker",
+    "alphaworker",
+]

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from .registry import LOADER_REGISTRY, CHUNKER_REGISTRY
+from .registry import CHUNKER_REGISTRY, EMBEDDER_REGISTRY, LOADER_REGISTRY
 
 
 def betaworker(
@@ -10,113 +10,111 @@ def betaworker(
     chunk_size: int = 1000,
     chunk_overlap: int = 200,
 ):
-    """Load a file and split it into RAG-ready document chunks.
+    """Load a file and split it into retrieval-ready document chunks.
 
-    The loader is selected from ``loader`` or, when omitted, from the file
-    extension. Each loader returns this package's ``Document`` objects, and
-    the selected chunker preserves their metadata on every output chunk.
+    The pipeline is intentionally simple: detect the file type, choose the
+    matching loader, transform the raw content into Ragfuse's ``Document``
+    objects, and then split those documents into chunk-sized text blocks using a
+    configured chunker.
 
-    Supported loaders:
-        - ``text`` / ``txt``: UTF-8 plain-text files.
-        - ``csv``: CSV files, one document per data row.
-        - ``excel`` / ``xls`` / ``xlsx`` / ``xlsm``: Excel files, one document per row.
-        - ``json``: JSON files loaded through LangChain and jq.
-        - ``pdf``: PDF pages loaded through pypdf.
-        - ``markdown`` / ``md``: Markdown files loaded as one document.
-
-    Supported chunkers:
-        - ``recursive``: LangChain RecursiveCharacterTextSplitter.
-        - ``character`` / ``char``: fixed-size character splitting.
-        - ``contextual`` / ``context``: paragraph and sentence-aware splitting.
-
-    The default chunk configuration is ``chunk_size=1000`` and
-    ``chunk_overlap=200``. All chunkers validate that the overlap is smaller
-    than the chunk size.
-
-    When ``loader`` is omitted, it is detected from the file extension. For example,
-    ``report.pdf`` selects the ``pdf`` loader and ``data.csv`` selects ``csv``.
+    Supported loaders include plain text, CSV, Excel, JSON, Markdown, and PDF.
+    Supported chunkers include recursive, character-based, and contextual
+    splitting. The default settings create chunks of up to 1000 characters with
+    a 200-character overlap between adjacent chunks.
 
     Args:
-        file_path: Path to the source file.
-        loader: Optional loader name. Use it to override automatic detection.
-        chunker: Chunker name. Defaults to ``recursive``.
-        chunk_size: Maximum number of characters in each chunk. Defaults to 1000.
-        chunk_overlap: Number of overlapping characters between chunks. Defaults to 200.
+        file_path: Path to the source file to process.
+        loader: Optional loader override. If omitted, Ragfuse detects the loader
+            from the file extension.
+        chunker: Name of the chunking strategy to use.
+        chunk_size: Maximum number of characters in each chunk.
+        chunk_overlap: Number of overlapping characters between neighboring
+            chunks.
 
     Returns:
-        A list of this package's chunked ``Document`` objects.
+        A list of chunked ``Document`` objects ready for indexing or embedding.
+
+    Raises:
+        ValueError: If the loader or chunker name is unsupported, or if the file
+            extension cannot be mapped to a registered loader.
     """
     # -------------------------
-    # 1. Detect loader
+    # 1. Detect loader by file extension when no override is supplied.
     # -------------------------
-
-    EXTENSION_TO_LOADER = {
-    "txt": "text",
-
-    "csv": "csv",
-
-    "pdf": "pdf",
-
-    "json": "json",
-
-    "md": "markdown",
-
-    "xls": "excel",
-    "xlsx": "excel",
-    "xlsm": "excel",
-}
+    extension_to_loader = {
+        "txt": "text",
+        "csv": "csv",
+        "pdf": "pdf",
+        "json": "json",
+        "md": "markdown",
+        "xls": "excel",
+        "xlsx": "excel",
+        "xlsm": "excel",
+    }
 
     if loader is None:
-
         suffix = Path(file_path).suffix.lower().lstrip(".")
-        loader = EXTENSION_TO_LOADER.get(suffix)
+        loader = extension_to_loader.get(suffix)
 
         if loader not in LOADER_REGISTRY:
-            raise ValueError(
-                f"Cannot detect loader for: {file_path}"
-            )
+            raise ValueError(f"Cannot detect loader for: {file_path}")
 
     # -------------------------
-    # 2. Get loader
+    # 2. Validate and create the loader.
     # -------------------------
-
     if loader not in LOADER_REGISTRY:
-        raise ValueError(
-            f"Unsupported loader: {loader}"
-        )
+        raise ValueError(f"Unsupported loader: {loader}")
 
     loader_class = LOADER_REGISTRY[loader]
-
     loader_instance = loader_class()
 
     # -------------------------
-    # 3. Load document
+    # 3. Load the source document(s).
     # -------------------------
-
     documents = loader_instance.load(file_path)
 
     # -------------------------
-    # 4. Get chunker
+    # 4. Validate and initialize the chunker.
     # -------------------------
-
     if chunker not in CHUNKER_REGISTRY:
-        raise ValueError(
-            f"Unsupported chunker: {chunker}"
-        )
+        raise ValueError(f"Unsupported chunker: {chunker}")
 
     chunker_class = CHUNKER_REGISTRY[chunker]
-
     chunker_instance = chunker_class(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
     )
 
     # -------------------------
-    # 5. Chunk documents
+    # 5. Split the loaded content into text chunks.
     # -------------------------
-
-    chunks = chunker_instance.split_documents(
-        documents
-    )
-
+    chunks = chunker_instance.split_documents(documents)
     return chunks
+
+
+def alphaworker(
+    chunks: list,
+    model: str = "minilm",
+    model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+):
+    """Generate embeddings for a list of Ragfuse document chunks.
+
+    This utility converts each chunk's ``page_content`` into a vector using the
+    selected embedding model. It is useful for turning retrieved passages into
+    numeric representations that can be compared or indexed for semantic search.
+
+    Args:
+        chunks: A list of Ragfuse ``Document`` objects or chunk objects with a
+            ``page_content`` attribute.
+        model: Model registry key to use for embedding generation.
+        model_name: Hugging Face model name passed to the selected embedder.
+
+    Returns:
+        A list of embedding vectors, with one vector per chunk.
+    """
+    embedder_class = EMBEDDER_REGISTRY[model]
+    embedder = embedder_class(model_name=model_name)
+
+    texts = [chunk.page_content for chunk in chunks]
+    embeddings = embedder.embed_documents(texts)
+    return embeddings

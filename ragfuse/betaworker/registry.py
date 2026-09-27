@@ -7,6 +7,7 @@ from ..loaders.md import MarkdownLoader
 from ..loaders.pdf import PDFLoader
 from ..loaders.text import TextLoader
 from ..chunkers.recursive import RecursiveChunker
+from ..embedder.local_model import MiniLM
 
 
 LOADER_REGISTRY = {
@@ -30,4 +31,8 @@ CHUNKER_REGISTRY = {
     "char": CharacterChunker,
     "contextual": ContextualChunker,
     "context": ContextualChunker,
+}
+
+EMBEDDER_REGISTRY = {
+    "minilm": MiniLM
 }
