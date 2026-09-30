@@ -16,6 +16,9 @@ dependencies = [
     "langchain-community>=0.2.0",
 ]
 
+[project.optional-dependencies]
+chroma = ["chromadb>=0.5.0"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["ragfuse*"]

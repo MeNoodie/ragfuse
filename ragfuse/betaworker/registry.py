@@ -8,6 +8,7 @@ from ..loaders.pdf import PDFLoader
 from ..loaders.text import TextLoader
 from ..chunkers.recursive import RecursiveChunker
 from ..embedder.local_model import MiniLM
+from ..vectorstore.chroma import ChromaVectorStore
 
 
 LOADER_REGISTRY = {
@@ -35,4 +36,9 @@ CHUNKER_REGISTRY = {
 
 EMBEDDER_REGISTRY = {
     "minilm": MiniLM
+}
+
+VECTORSTORE_REGISTRY = {
+    "chroma": ChromaVectorStore,
+    "chromadb": ChromaVectorStore,
 }

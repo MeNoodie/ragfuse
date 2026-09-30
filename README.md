@@ -16,6 +16,12 @@ Ragfuse is a lightweight Python package for building Retrieval-Augmented Generat
 pip install ragfuse
 ```
 
+Install the optional Chroma support with:
+
+```bash
+pip install "ragfuse[chroma]"
+```
+
 ## Quick start
 
 ```python
@@ -86,6 +92,50 @@ from ragfuse.betaworker import alphaworker
 
 vectors = alphaworker(chunks=chunks, model="minilm")
 ```
+
+### `deltaworker(...)`
+
+Store chunks and their precomputed embeddings in the local Chroma database:
+
+```python
+from ragfuse import alphaworker, betaworker, deltaworker
+
+chunks = betaworker("notes.md")
+embeddings = alphaworker(chunks)
+store = deltaworker(
+    chunks,
+    embeddings,
+    vectorstore="chroma",
+    persist_directory="./local_vsdb",
+    collection_name="generalstore",
+)
+```
+
+The function returns the store instance, which can be used to query with an
+embedding produced by the same model.
+
+### `ChromaVectorStore`
+
+Use the local Chroma store to persist precomputed vectors and query them later:
+
+```python
+from ragfuse import ChromaVectorStore
+from ragfuse.betaworker import Document, alphaworker, betaworker
+
+chunks = betaworker("notes.md")
+embeddings = alphaworker(chunks)
+
+store = ChromaVectorStore(persist_directory="./local_vsdb")
+store.upsert(chunks, embeddings)
+
+query = Document(page_content="search text")
+query_embedding = alphaworker([query])[0]
+matches = store.query(query_embedding, n_results=3)
+```
+
+Pass `ids` to `upsert` when re-indexing if you want to update existing records
+instead of creating new ones. Query embeddings must use the same model as the
+stored document embeddings.
 
 ## Document model
 

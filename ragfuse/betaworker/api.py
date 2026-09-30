@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from .registry import CHUNKER_REGISTRY, EMBEDDER_REGISTRY, LOADER_REGISTRY
+from .registry import (
+    CHUNKER_REGISTRY,
+    EMBEDDER_REGISTRY,
+    LOADER_REGISTRY,
+    VECTORSTORE_REGISTRY,
+)
 
 
 def betaworker(
@@ -118,3 +123,40 @@ def alphaworker(
     texts = [chunk.page_content for chunk in chunks]
     embeddings = embedder.embed_documents(texts)
     return embeddings
+
+
+def deltaworker(
+    chunks: list,
+    embeddings: list,
+    vectorstore: str = "chroma",
+    persist_directory: str = "./local_vsdb",
+    collection_name: str = "ragfuse",
+    ids: list = None,
+):
+    """Store document chunks and their precomputed embeddings locally.
+
+    Args:
+        chunks: Ragfuse documents to store.
+        embeddings: One embedding vector per chunk, usually from
+            ``alphaworker``.
+        vectorstore: Registered vector-store name (``chroma`` or ``chromadb``).
+        persist_directory: Local directory where Chroma persists its database.
+        collection_name: Name of the Chroma collection to create or reuse.
+        ids: Optional stable IDs for updating existing records on re-indexing.
+
+    Returns:
+        The initialized vector-store instance, ready for queries.
+
+    Raises:
+        ValueError: If the vector-store name is not registered.
+    """
+    if vectorstore not in VECTORSTORE_REGISTRY:
+        raise ValueError(f"Unsupported vector store: {vectorstore}")
+
+    vectorstore_class = VECTORSTORE_REGISTRY[vectorstore]
+    store = vectorstore_class(
+        persist_directory=persist_directory,
+        collection_name=collection_name,
+    )
+    store.upsert(chunks=chunks, embeddings=embeddings, ids=ids)
+    return store
