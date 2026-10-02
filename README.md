@@ -1,172 +1,91 @@
 # Ragfuse
 
-Ragfuse is a lightweight Python package for building Retrieval-Augmented Generation (RAG) pipelines. It helps you load files from common formats, split them into meaningful chunks, and generate embeddings for semantic search or downstream vector-based retrieval.
+**Add retrieval-augmented generation (RAG) capabilities to your Python application in a few steps.**
+
+Ragfuse helps you load documents, split them into chunks, generate embeddings, and store those vectors locally with ChromaDB. Use the retrieved text as context in your own application or with your preferred language model.
 
 ## Features
 
-- Supports multiple document loaders: text, CSV, Excel, JSON, Markdown, and PDF
-- Provides multiple chunking strategies: recursive, character-based, and contextual splitting
-- Converts document chunks into sentence-transformer embeddings
-- Keeps document metadata attached to each chunk for downstream use
-- Small, dependency-light API focused on practical RAG workflows
+- Load text, CSV, Excel, JSON, Markdown, and PDF documents
+- Split documents with recursive, character-based, or contextual chunking
+- Generate embeddings with sentence-transformers
+- Persist and query vectors in a local ChromaDB database
 
-## Installation
+## 1. Install
 
-```bash
-pip install ragfuse
-```
+Ragfuse requires Python 3.10 or newer.
 
-Install the optional Chroma support with:
+Install Ragfuse with its optional ChromaDB dependency:
 
 ```bash
 pip install "ragfuse[chroma]"
 ```
 
-## Quick start
+## 2. Prepare a document
+
+Create a text file, for example `my_notes.txt`, and add content that you want to search. The example below loads that file and creates chunks from it.
+
+## 3. Load and chunk the document
 
 ```python
-from ragfuse.betaworker import betaworker, alphaworker
+from ragfuse import betaworker
 
 chunks = betaworker(
-    file_path="example.pdf",
-    loader="pdf",
-    chunker="recursive",
-    chunk_size=1000,
-    chunk_overlap=200,
+    file_path="my_notes.txt",
+    loader="text",
+    chunker="contextual",
+    chunk_size=200,
+    chunk_overlap=50,
 )
 
-embeddings = alphaworker(
+print(f"Total chunks: {len(chunks)}")
+```
+
+## 4. Generate embeddings
+
+```python
+from ragfuse import alphaworker
+
+embeddings = alphaworker(chunks=chunks, model="minilm")
+```
+
+The first run may download the sentence-transformer model.
+
+## 5. Save vectors locally with ChromaDB
+
+```python
+from ragfuse import deltaworker
+
+vector_store = deltaworker(
     chunks=chunks,
-    model="minilm",
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-)
-
-print(len(chunks))
-print(len(embeddings))
-```
-
-## Supported loaders
-
-| Loader name | File types | Notes |
-| --- | --- | --- |
-| `text` / `txt` | `.txt` | Plain text files |
-| `csv` | `.csv` | Row-based document extraction |
-| `excel` / `xls` / `xlsx` / `xlsm` | `.xls`, `.xlsx`, etc. | Row-based spreadsheet loading |
-| `json` | `.json` | Uses JSON content with jq-style path selection |
-| `markdown` / `md` | `.md` | Markdown documents loaded as content |
-| `pdf` | `.pdf` | PDF page extraction |
-
-## Supported chunkers
-
-- `recursive`: best for general-purpose splitting with balanced chunk lengths
-- `character` / `char`: fixed-size character chunking
-- `contextual` / `context`: sentence-aware and paragraph-aware chunking
-
-## Supported embedders
-
-- `minilm`: sentence-transformers all-MiniLM-L6-v2 model
-
-## Core API
-
-### `betaworker(...)`
-
-This function loads a file, automatically detects the appropriate loader based on the file extension, and splits the content into `Document` objects using the selected chunker.
-
-```python
-from ragfuse.betaworker import betaworker
-
-chunks = betaworker(
-    file_path="report.pdf",
-    chunker="recursive",
-    chunk_size=1000,
-    chunk_overlap=200,
-)
-```
-
-### `alphaworker(...)`
-
-This function takes the chunked documents and generates one embedding per chunk using the selected embedding model.
-
-```python
-from ragfuse.betaworker import alphaworker
-
-vectors = alphaworker(chunks=chunks, model="minilm")
-```
-
-### `deltaworker(...)`
-
-Store chunks and their precomputed embeddings in the local Chroma database:
-
-```python
-from ragfuse import alphaworker, betaworker, deltaworker
-
-chunks = betaworker("notes.md")
-embeddings = alphaworker(chunks)
-store = deltaworker(
-    chunks,
-    embeddings,
-    vectorstore="chroma",
+    embeddings=embeddings,
+    vectorstore="chromadb",
     persist_directory="./local_vsdb",
     collection_name="generalstore",
 )
 ```
 
-The function returns the store instance, which can be used to query with an
-embedding produced by the same model.
+ChromaDB stores its data in `./local_vsdb`, so it remains available between runs.
 
-### `ChromaVectorStore`
-
-Use the local Chroma store to persist precomputed vectors and query them later:
+## 6. Search for relevant text
 
 ```python
-from ragfuse import ChromaVectorStore
-from ragfuse.betaworker import Document, alphaworker, betaworker
-
-chunks = betaworker("notes.md")
-embeddings = alphaworker(chunks)
-
-store = ChromaVectorStore(persist_directory="./local_vsdb")
-store.upsert(chunks, embeddings)
-
-query = Document(page_content="search text")
-query_embedding = alphaworker([query])[0]
-matches = store.query(query_embedding, n_results=3)
+matches = vector_store.query(embeddings[0], n_results=1)
+print(matches["documents"][0][0])
 ```
 
-Pass `ids` to `upsert` when re-indexing if you want to update existing records
-instead of creating new ones. Query embeddings must use the same model as the
-stored document embeddings.
+This example queries with the first chunk's embedding. In your application, embed the user's question with the same model and pass that embedding to `vector_store.query()` to find relevant chunks. Send the returned text to your language model as context for generating an answer.
 
-## Document model
+## Run the repository demo
 
-Each document is represented by the `Document` dataclass, which stores the page content and metadata:
+The repository includes a runnable end-to-end example in [`test/test.py`](test/test.py). From the repository root, run:
 
-```python
-from ragfuse.betaworker import Document
-
-item = Document(
-    page_content="Hello world",
-    metadata={"source": "example.txt"},
-)
+```bash
+python test/test.py
 ```
 
-## Notes
+The demo uses `test/perm.txt` and persists its local ChromaDB data under `test/local_vsdb`.
 
-- The default chunk configuration is `chunk_size=1000` and `chunk_overlap=200`.
-- The chunk overlap must be smaller than the chunk size.
-- If no loader is specified, Ragfuse picks one from the file extension automatically.
+## Current vector database support
 
-## Example workflow
-
-```python
-from ragfuse.betaworker import betaworker, alphaworker
-
-chunks = betaworker("notes.md", chunker="contextual")
-embeddings = alphaworker(chunks)
-
-for idx, chunk in enumerate(chunks[:3]):
-    print(f"Chunk {idx}: {chunk.page_content[:120]}")
-    print(f"Embedding length: {len(embeddings[idx])}")
-```
-
-This package is designed to keep the RAG setup small and understandable while still supporting the most common data-loading and chunking workflows.
+Ragfuse currently supports local vector storage with ChromaDB. Install it through the `chroma` extra shown above.

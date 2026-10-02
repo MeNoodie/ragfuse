@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ragfuse"
 version = "0.1.0"
 description = "A simple RAG package for loading and chunking documents"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "sentence-transformers>=2.2.0",
     "pandas>=2.0.0",
