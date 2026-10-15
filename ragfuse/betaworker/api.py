@@ -132,8 +132,9 @@ def deltaworker(
     persist_directory: str = "./local_vsdb",
     collection_name: str = "ragfuse",
     ids: list = None,
+    mode: str = "local",
 ):
-    """Store document chunks and their precomputed embeddings locally.
+    """Store document chunks and their precomputed embeddings with Chroma.
 
     Args:
         chunks: Ragfuse documents to store.
@@ -143,6 +144,9 @@ def deltaworker(
         persist_directory: Local directory where Chroma persists its database.
         collection_name: Name of the Chroma collection to create or reuse.
         ids: Optional stable IDs for updating existing records on re-indexing.
+        mode: Chroma connection mode: ``local`` (default) or ``cloud``.
+            Cloud mode reads CHROMA_API_KEY, CHROMA_TENANT, and CHROMA_DATABASE
+            from the environment.
 
     Returns:
         The initialized vector-store instance, ready for queries.
@@ -157,6 +161,7 @@ def deltaworker(
     store = vectorstore_class(
         persist_directory=persist_directory,
         collection_name=collection_name,
+        mode=mode,
     )
     store.upsert(chunks=chunks, embeddings=embeddings, ids=ids)
     return store

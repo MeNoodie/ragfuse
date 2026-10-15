@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ragfuse"
 version = "0.1.2"
-description = "A simple RAG package for loading and chunking documents"
+description = "Load and chunk documents, create embeddings, and retrieve context for RAG applications"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-chroma = ["chromadb>=0.5.0"]
+chroma = ["chromadb>=1.0.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]

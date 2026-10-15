@@ -1,3 +1,4 @@
+import os
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -11,6 +12,7 @@ class ChromaVectorStore:
         self,
         persist_directory: str = "./local_vsdb",
         collection_name: str = "ragfuse",
+        mode: str = "local",
     ) -> None:
         try:
             chromadb = import_module("chromadb")
@@ -20,7 +22,32 @@ class ChromaVectorStore:
                 "Install it with: pip install ragfuse[chroma]"
             ) from error
 
-        self._client = chromadb.PersistentClient(path=str(Path(persist_directory)))
+        if mode == "local":
+            self._client = chromadb.PersistentClient(
+                path=str(Path(persist_directory))
+            )
+        elif mode == "cloud":
+            env_values = {
+                "CHROMA_API_KEY": os.getenv("CHROMA_API_KEY"),
+                "CHROMA_TENANT": os.getenv("CHROMA_TENANT"),
+                "CHROMA_DATABASE": os.getenv("CHROMA_DATABASE"),
+            }
+            missing = [name for name, value in env_values.items() if not value]
+            if missing:
+                raise ValueError(
+                    "Chroma Cloud requires these environment variables: "
+                    f"{', '.join(missing)}"
+                )
+
+            config = {
+                "api_key": env_values["CHROMA_API_KEY"],
+                "tenant": env_values["CHROMA_TENANT"],
+                "database": env_values["CHROMA_DATABASE"],
+            }
+            self._client = chromadb.CloudClient(**config)
+        else:
+            raise ValueError("mode must be either 'local' or 'cloud'")
+
         self._collection = self._client.get_or_create_collection(
             name=collection_name
         )
